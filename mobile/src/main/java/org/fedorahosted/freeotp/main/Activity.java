@@ -69,6 +69,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.NavigableSet;
 import java.util.TreeSet;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import javax.crypto.SecretKey;
 
@@ -113,6 +115,15 @@ public class Activity extends AppCompatActivity
     public static final String SORT_BY_MRU = "sortByMostRecentlyUsed";
     /* Remembered backup file for Quick Restore */
     static final String RESTORE_URI = "restoreUri";
+
+    /* 候选密码搜索（还原对话框的「尝试候选」），每轮最多 CANDIDATES_PER_ROUND 个 */
+    private static final int CANDIDATES_PER_ROUND = 100;
+    private ExecutorService mCandidateExecutor;
+    private Handler mHandler;
+    private List<String> mCandidates;
+    private int mNextCandidate;
+    private boolean mCandidateSearchRunning;
+    private volatile boolean mCandidateSearchCancelled;
 
 
     private final RecyclerView.AdapterDataObserver mAdapterDataObserver =
@@ -246,6 +257,7 @@ public class Activity extends AppCompatActivity
 
         mBackups = getApplicationContext().getSharedPreferences(BACKUP, Context.MODE_PRIVATE);
         mSettings = getApplicationContext().getSharedPreferences(SETTINGS, Context.MODE_PRIVATE);
+        mHandler = new Handler(Looper.getMainLooper());
 
         initLaunchers();
 
@@ -357,6 +369,16 @@ public class Activity extends AppCompatActivity
     }
 
     @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        discardCandidateSearch();
+        if (mCandidateExecutor != null) {
+            mCandidateExecutor.shutdown();
+            mCandidateExecutor = null;
+        }
+    }
+
+    @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.menu_main, menu);
         mMenu = menu;
@@ -462,8 +484,113 @@ public class Activity extends AppCompatActivity
                 restoreDialog.dismiss();
                 showRestoreCancelAlert();
             }
+
+            @Override
+            public void onTryCandidates(String password) {
+                startOrResumeCandidateSearch(restoreDialog, password);
+            }
+
+            @Override
+            public void onStopCandidates() {
+                stopCandidateSearch();
+            }
+
+            @Override
+            public void onPasswordEdited() {
+                discardCandidateSearch();
+            }
+
+            @Override
+            public void onDialogDismissed() {
+                discardCandidateSearch();
+            }
         });
         restoreDialog.show(getSupportFragmentManager(), "restore");
+    }
+
+    /* 在后台逐个校验候选密码。默认规则集不超过 100 个，通常一轮跑完；
+       候选超过 100 个时才会出现轮间暂停（每轮 CANDIDATES_PER_ROUND 个）。 */
+    private void startOrResumeCandidateSearch(RestoreDialogFragment dialog, String basePassword) {
+        if (mCandidateSearchRunning) {
+            return;
+        }
+        if (mCandidates == null) {
+            mCandidates = PasswordCandidates.generate(basePassword);
+            mNextCandidate = 0;
+        }
+
+        final List<String> candidates = mCandidates;
+        final int total = candidates.size();
+        final int start = mNextCandidate;
+        final int end = Math.min(start + CANDIDATES_PER_ROUND, total);
+        final int round = start / CANDIDATES_PER_ROUND + 1;
+        final int roundStart = (round - 1) * CANDIDATES_PER_ROUND;
+
+        mCandidateSearchCancelled = false;
+        mCandidateSearchRunning = true;
+        dialog.showSearchRunning(start - roundStart, total, round);
+
+        mCandidateExecutor = Executors.newSingleThreadExecutor();
+        mCandidateExecutor.execute(() -> {
+            for (int i = start; i < end; i++) {
+                if (mCandidateSearchCancelled) {
+                    finishCandidateSearch(dialog, i, total, round, null, true);
+                    return;
+                }
+                if (mTokenBackup.verifyPassword(candidates.get(i))) {
+                    finishCandidateSearch(dialog, i, total, round, candidates.get(i), false);
+                    return;
+                }
+                final int done = i + 1 - roundStart;
+                mHandler.post(() -> {
+                    if (dialog.isAdded()) {
+                        dialog.updateSearchProgress(done, total, round);
+                    }
+                });
+            }
+            finishCandidateSearch(dialog, end, total, round, null, false);
+        });
+    }
+
+    /* 收尾都回到主线程：更新会话状态、停掉线程池、刷新对话框。
+       nextIndex 为停下时未试候选的下标（命中时为命中候选的下标，提示里用 +1 展示）。 */
+    private void finishCandidateSearch(RestoreDialogFragment dialog, int nextIndex, int total,
+                                       int round, String found, boolean cancelled) {
+        mHandler.post(() -> {
+            mCandidateSearchRunning = false;
+            if (mCandidateExecutor != null) {
+                mCandidateExecutor.shutdown();
+                mCandidateExecutor = null;
+            }
+            if (!dialog.isAdded()) {
+                discardCandidateSearch();
+                return;
+            }
+            if (found != null) {
+                discardCandidateSearch();
+                dialog.showCandidateFound(found, nextIndex + 1, total);
+            } else if (nextIndex >= total) {
+                discardCandidateSearch();
+                dialog.showCandidatesExhausted(total);
+            } else if (cancelled) {
+                mNextCandidate = nextIndex;
+                dialog.showSearchStopped(nextIndex, total);
+            } else {
+                mNextCandidate = nextIndex;
+                dialog.showRoundFinished(round, nextIndex, total);
+            }
+        });
+    }
+
+    private void stopCandidateSearch() {
+        mCandidateSearchCancelled = true;
+    }
+
+    /* 输入变化或对话框关闭时作废会话：候选列表基于旧输入，不能复用 */
+    private void discardCandidateSearch() {
+        mCandidateSearchCancelled = true;
+        mCandidates = null;
+        mNextCandidate = 0;
     }
 
     @Override

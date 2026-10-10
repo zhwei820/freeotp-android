@@ -20,6 +20,7 @@
 
 package org.fedorahosted.freeotp.main;
 
+import android.content.DialogInterface;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -46,12 +47,21 @@ public class RestoreDialogFragment extends DialogFragment implements View.OnClic
     private Button mOkButton;
     private Button mVerifyButton;
     private Button mCancelButton;
+    private Button mTryButton;
+    private TextView mTryStatus;
+    private TryState mTryState = TryState.IDLE;
     private RestoreDialogListener mListener;
+
+    private enum TryState { IDLE, RUNNING, PAUSED }
 
     public interface RestoreDialogListener {
         void onRestorePassword(String password);
         void onVerifyPassword(String password);
         void onRestoreCancel();
+        void onTryCandidates(String password);
+        void onStopCandidates();
+        void onPasswordEdited();
+        void onDialogDismissed();
     }
 
     static RestoreDialogFragment newInstance() {
@@ -62,6 +72,14 @@ public class RestoreDialogFragment extends DialogFragment implements View.OnClic
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setCancelable(false);
+    }
+
+    @Override
+    public void onDismiss(DialogInterface dialog) {
+        super.onDismiss(dialog);
+        if (mListener != null) {
+            mListener.onDialogDismissed();
+        }
     }
 
     @Nullable
@@ -75,10 +93,13 @@ public class RestoreDialogFragment extends DialogFragment implements View.OnClic
         mOkButton = v.findViewById(R.id.restore_ok_button);
         mVerifyButton = v.findViewById(R.id.restore_verify_button);
         mCancelButton = v.findViewById(R.id.restore_cancel_button);
+        mTryButton = v.findViewById(R.id.restore_try_button);
+        mTryStatus = v.findViewById(R.id.restore_try_status);
 
         mOkButton.setOnClickListener(this);
         mVerifyButton.setOnClickListener(this);
         mCancelButton.setOnClickListener(this);
+        mTryButton.setOnClickListener(this);
 
         // Clear error when user starts typing
         mPasswordInput.addTextChangedListener(new TextWatcher() {
@@ -91,6 +112,12 @@ public class RestoreDialogFragment extends DialogFragment implements View.OnClic
                     mPasswordLayout.setError(null);
                 }
                 mPasswordLayout.setHelperText(null);
+
+                /* 输入变了，基于旧输入的候选会话作废 */
+                resetCandidateSearchState();
+                if (mListener != null) {
+                    mListener.onPasswordEdited();
+                }
             }
 
             @Override
@@ -120,7 +147,26 @@ public class RestoreDialogFragment extends DialogFragment implements View.OnClic
     @Override
     public void onClick(View v) {
         int id = v.getId();
-        if (id == R.id.restore_ok_button || id == R.id.restore_verify_button) {
+
+        /* 运行中只允许「停止」；其余按钮已置灰，但输入法的 Go 键经 performClick 不受置灰限制 */
+        if (mTryState == TryState.RUNNING && id != R.id.restore_try_button) {
+            return;
+        }
+
+        if (id == R.id.restore_try_button) {
+            if (mTryState == TryState.RUNNING) {
+                if (mListener != null) {
+                    mListener.onStopCandidates();
+                }
+            } else if (mPasswordInput != null && mListener != null) {
+                String password = mPasswordInput.getText().toString();
+                if (password.isEmpty()) {
+                    mPasswordLayout.setError(getString(R.string.main_restore_password_required));
+                    return;
+                }
+                mListener.onTryCandidates(password);
+            }
+        } else if (id == R.id.restore_ok_button || id == R.id.restore_verify_button) {
             if (mPasswordInput != null && mListener != null) {
                 String password = mPasswordInput.getText().toString();
 
@@ -165,5 +211,60 @@ public class RestoreDialogFragment extends DialogFragment implements View.OnClic
             mPasswordLayout.setError(null);
             mPasswordLayout.setHelperText(getString(R.string.main_restore_good_password));
         }
+    }
+
+    public void showSearchRunning(int done, int total, int round) {
+        renderTryState(TryState.RUNNING);
+        showTryStatus(getString(R.string.main_restore_try_progress, done, total, round));
+    }
+
+    public void updateSearchProgress(int done, int total, int round) {
+        showTryStatus(getString(R.string.main_restore_try_progress, done, total, round));
+    }
+
+    public void showSearchStopped(int done, int total) {
+        renderTryState(TryState.PAUSED);
+        showTryStatus(getString(R.string.main_restore_try_stopped, done, total));
+    }
+
+    public void showRoundFinished(int round, int done, int total) {
+        renderTryState(TryState.PAUSED);
+        showTryStatus(getString(R.string.main_restore_try_round_finished, round, done, total));
+    }
+
+    public void showCandidateFound(String password, int index, int total) {
+        renderTryState(TryState.IDLE);
+        /* setText 会触发的 onTextChanged 先清掉旧状态，命中提示随后覆盖它 */
+        mPasswordInput.setText(password);
+        mPasswordInput.setSelection(password.length());
+        mPasswordLayout.setError(null);
+        showTryStatus(getString(R.string.main_restore_try_found, index, total));
+    }
+
+    public void showCandidatesExhausted(int total) {
+        renderTryState(TryState.IDLE);
+        showTryStatus(getString(R.string.main_restore_try_none, total));
+    }
+
+    private void renderTryState(TryState state) {
+        mTryState = state;
+        boolean running = state == TryState.RUNNING;
+        mOkButton.setEnabled(!running);
+        mVerifyButton.setEnabled(!running);
+        mCancelButton.setEnabled(!running);
+        mPasswordInput.setEnabled(!running);
+        mTryButton.setText(state == TryState.RUNNING ? R.string.main_restore_try_stop
+                : state == TryState.PAUSED ? R.string.main_restore_try_continue
+                : R.string.main_restore_try);
+    }
+
+    private void resetCandidateSearchState() {
+        mTryStatus.setVisibility(View.GONE);
+        renderTryState(TryState.IDLE);
+    }
+
+    private void showTryStatus(CharSequence text) {
+        mTryStatus.setText(text);
+        mTryStatus.setVisibility(View.VISIBLE);
     }
 }

@@ -81,6 +81,14 @@
     <string name="main_restore_cancel_message">You will lose all previously backed up tokens!</string>
     <string name="main_restore_proceed">Proceed without Restoring</string>
     <string name="main_restore_go_back">Go Back</string>
+    <string name="main_restore_try">Try</string>
+    <string name="main_restore_try_stop">Stop</string>
+    <string name="main_restore_try_continue">Continue</string>
+    <string name="main_restore_try_progress">Trying %1$d of %2$d variants (round %3$d)...</string>
+    <string name="main_restore_try_round_finished">Round %1$d finished with no match (%2$d of %3$d tried). Continue with the next round?</string>
+    <string name="main_restore_try_stopped">Paused after %1$d of %2$d variants. Continue?</string>
+    <string name="main_restore_try_found">Password found (variant %1$d of %2$d), filled in</string>
+    <string name="main_restore_try_none">All %1$d variants tried, no match</string>
 
     <!-- Strings for the password activity. -->
     <string name="password">Password</string>
