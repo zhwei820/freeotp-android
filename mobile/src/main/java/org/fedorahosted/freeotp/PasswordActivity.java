@@ -67,17 +67,7 @@ public class PasswordActivity extends AppCompatActivity {
         mDone.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                String password = mPassword.getText().toString();
-
-                try {
-                    mTokenBackup.provision(password);
-                } catch (Exception e){
-                    Log.e(LOGTAG, "Exception", e);
-                }
-
-                Intent myIntent = new Intent(PasswordActivity.this, Activity.class);
-                startActivity(myIntent);
-                finish();
+                showSavePasswordDialog(mPassword.getText().toString());
             }
         });
 
@@ -135,6 +125,41 @@ public class PasswordActivity extends AppCompatActivity {
                 mDone.setEnabled(!zero && match && meetsComplexity(password));
             }
         });
+    }
+
+    private void showSavePasswordDialog(final String password) {
+        View content = getLayoutInflater().inflate(R.layout.dialog_save_password, null);
+        ((TextView) content.findViewById(R.id.saved_password)).setText(password);
+
+        new AlertDialog.Builder(this)
+                .setIcon(android.R.drawable.ic_dialog_alert)
+                .setTitle(R.string.password_save_title)
+                .setView(content)
+                .setCancelable(true)
+                .setPositiveButton(R.string.password_save_confirm, (dialog, which) -> provision(password))
+                .setNegativeButton(R.string.cancel, (dialog, which) -> revealPassword())
+                .setOnCancelListener(dialog -> revealPassword())
+                .show();
+    }
+
+    // Leave the password in plain text so the user can still copy it down after dismissing.
+    private void revealPassword() {
+        mPassword.setTransformationMethod(null);
+        mConfirm.setTransformationMethod(null);
+        mPasswordLayout.refreshEndIconDrawableState();
+        mConfirmLayout.refreshEndIconDrawableState();
+    }
+
+    private void provision(String password) {
+        try {
+            mTokenBackup.provision(password);
+        } catch (Exception e){
+            Log.e(LOGTAG, "Exception", e);
+        }
+
+        Intent myIntent = new Intent(PasswordActivity.this, Activity.class);
+        startActivity(myIntent);
+        finish();
     }
 
     // A password must contain at least one upper case letter, one lower case letter,

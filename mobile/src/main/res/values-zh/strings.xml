@@ -46,6 +46,10 @@
     <string name="password_confirm">确认输入密码</string>
     <string name="password_info">动态密码备份让您可以从数据遗失中恢复，并且轻松地把您的动态密码转移到新装置上。\n\n备份会使用您提供的密码来加密。备份的安全性取决于密码的强度。\n\n请注意，这个密码受到FreeOTP的安全模型限制，设定后无法更改。</string>
     <string name="password_match">密码不一致！</string>
+    <string name="password_save_title">请保存好您的密码</string>
+    <string name="password_save_warning">此密码设定后无法更改，也无法找回！</string>
+    <string name="password_save_message">请务必抄写下面的密码并妥善保管。一旦遗忘，您的备份将永远无法还原。</string>
+    <string name="password_save_confirm">我已保存</string>
     <string name="manual_issuer_hint">公司名称示例</string>
     <string name="manual_secret_text">私钥</string>
     <string name="manual_secret_base32_text">Base32</string>
