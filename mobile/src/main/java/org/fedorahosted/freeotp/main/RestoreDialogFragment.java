@@ -20,6 +20,7 @@
 
 package org.fedorahosted.freeotp.main;
 
+import android.app.Dialog;
 import android.content.DialogInterface;
 import android.os.Bundle;
 import android.text.Editable;
@@ -48,6 +49,7 @@ public class RestoreDialogFragment extends DialogFragment implements View.OnClic
     private Button mVerifyButton;
     private Button mCancelButton;
     private Button mTryButton;
+    private Button mReselectButton;
     private TextView mTryStatus;
     private TryState mTryState = TryState.IDLE;
     private RestoreDialogListener mListener;
@@ -60,6 +62,7 @@ public class RestoreDialogFragment extends DialogFragment implements View.OnClic
         void onRestoreCancel();
         void onTryCandidates(String password);
         void onStopCandidates();
+        void onChooseAnotherFile();
         void onPasswordEdited();
         void onDialogDismissed();
     }
@@ -82,6 +85,18 @@ public class RestoreDialogFragment extends DialogFragment implements View.OnClic
         }
     }
 
+    @Override
+    public void onStart() {
+        super.onStart();
+
+        /* 窗口宽度默认随内容自适应，会被按钮行拖窄到放不下按钮；显式撑满 */
+        Dialog dialog = getDialog();
+        if (dialog != null && dialog.getWindow() != null) {
+            dialog.getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT);
+        }
+    }
+
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
@@ -94,12 +109,14 @@ public class RestoreDialogFragment extends DialogFragment implements View.OnClic
         mVerifyButton = v.findViewById(R.id.restore_verify_button);
         mCancelButton = v.findViewById(R.id.restore_cancel_button);
         mTryButton = v.findViewById(R.id.restore_try_button);
+        mReselectButton = v.findViewById(R.id.restore_reselect_button);
         mTryStatus = v.findViewById(R.id.restore_try_status);
 
         mOkButton.setOnClickListener(this);
         mVerifyButton.setOnClickListener(this);
         mCancelButton.setOnClickListener(this);
         mTryButton.setOnClickListener(this);
+        mReselectButton.setOnClickListener(this);
 
         // Clear error when user starts typing
         mPasswordInput.addTextChangedListener(new TextWatcher() {
@@ -165,6 +182,10 @@ public class RestoreDialogFragment extends DialogFragment implements View.OnClic
                     return;
                 }
                 mListener.onTryCandidates(password);
+            }
+        } else if (id == R.id.restore_reselect_button) {
+            if (mListener != null) {
+                mListener.onChooseAnotherFile();
             }
         } else if (id == R.id.restore_ok_button || id == R.id.restore_verify_button) {
             if (mPasswordInput != null && mListener != null) {
@@ -252,6 +273,7 @@ public class RestoreDialogFragment extends DialogFragment implements View.OnClic
         mOkButton.setEnabled(!running);
         mVerifyButton.setEnabled(!running);
         mCancelButton.setEnabled(!running);
+        mReselectButton.setEnabled(!running);
         mPasswordInput.setEnabled(!running);
         mTryButton.setText(state == TryState.RUNNING ? R.string.main_restore_try_stop
                 : state == TryState.PAUSED ? R.string.main_restore_try_continue

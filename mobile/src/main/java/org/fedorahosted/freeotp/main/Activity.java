@@ -31,7 +31,9 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
+import android.database.Cursor;
 import android.net.Uri;
+import android.provider.OpenableColumns;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -103,6 +105,7 @@ public class Activity extends AppCompatActivity
     ActivityResultLauncher<Intent> mManualAddLauncher;
     ActivityResultLauncher<Intent> mBackupSaveLauncher;
     ActivityResultLauncher<Intent> mRestoreSaveLauncher;
+    ActivityResultLauncher<Intent> mRestoreReselectLauncher;
     private String mRestorePwd = "";
     private SharedPreferences mBackups;
     private TokenPersistence mTokenBackup;
@@ -233,15 +236,29 @@ public class Activity extends AppCompatActivity
         });
 
         mRestoreSaveLauncher = registerLauncher(uri -> {
-            /* Remember the chosen file so Quick Restore can skip the picker next time */
-            rememberRestoreUri(uri);
-
-            /* Copy chosen file (externalBackup.xml) over apps tokenBackup.xml SP file */
-            mTokenBackup.restoreBackupFromExternal(uri);
+            /* Remember + stage the chosen file (externalBackup.xml) */
+            stageRestoreBackup(uri);
 
             /* Prompt for restore */
             showRestoreAlert();
         });
+
+        mRestoreReselectLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    Intent data = result.getData();
+                    Uri uri = result.getResultCode() == RESULT_OK && data != null ? data.getData() : null;
+                    if (uri != null) {
+                        if (stageRestoreBackup(uri)) {
+                            UserNotifier.show(this,
+                                    getString(R.string.main_restore_file_selected, backupFileName(uri)));
+                        } else {
+                            UserNotifier.show(this, R.string.quick_restore_unavailable);
+                        }
+                    }
+                    /* uri 为 null 表示用户取消了选择，沿用之前已暂存的文件 */
+                    showRestoreAlert();
+                });
     }
 
     @Override
@@ -417,13 +434,34 @@ public class Activity extends AppCompatActivity
         cancelDialog.show(getSupportFragmentManager(), "restore_cancel");
     }
 
-    private void launchRestorePicker() {
+    private void launchRestorePicker(ActivityResultLauncher<Intent> launcher) {
         Intent restoreIntent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         restoreIntent.addCategory(Intent.CATEGORY_OPENABLE);
         restoreIntent.setType("*/*");
         restoreIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
                 | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
-        mRestoreSaveLauncher.launch(restoreIntent);
+        launcher.launch(restoreIntent);
+    }
+
+    /* 记住并暂存所选备份文件；返回 false 表示文件读不出来（暂存区保持原样） */
+    private boolean stageRestoreBackup(Uri uri) {
+        rememberRestoreUri(uri);
+        return mTokenBackup.restoreBackupFromExternal(uri);
+    }
+
+    /* 所选备份文件的显示名；查不到时退回 URI 末段 */
+    private String backupFileName(Uri uri) {
+        try (Cursor cursor = getContentResolver().query(uri,
+                new String[] { OpenableColumns.DISPLAY_NAME }, null, null, null)) {
+            if (cursor != null && cursor.moveToFirst() && cursor.getString(0) != null) {
+                return cursor.getString(0);
+            }
+        } catch (Exception e) {
+            Log.e(LOGTAG, "Exception", e);
+        }
+
+        String lastSegment = uri.getLastPathSegment();
+        return lastSegment != null ? lastSegment : uri.toString();
     }
 
     private void rememberRestoreUri(Uri uri) {
@@ -442,7 +480,7 @@ public class Activity extends AppCompatActivity
         String saved = mSettings.getString(RESTORE_URI, null);
         if (saved == null) {
             // Nothing remembered yet: fall back to picking a file (and remember it).
-            launchRestorePicker();
+            launchRestorePicker(mRestoreSaveLauncher);
             return;
         }
 
@@ -452,7 +490,7 @@ public class Activity extends AppCompatActivity
             // Remembered file is gone or unreadable: forget it and let the user pick again.
             mSettings.edit().remove(RESTORE_URI).apply();
             UserNotifier.show(this, R.string.quick_restore_unavailable);
-            launchRestorePicker();
+            launchRestorePicker(mRestoreSaveLauncher);
         }
     }
 
@@ -486,6 +524,12 @@ public class Activity extends AppCompatActivity
             @Override
             public void onStopCandidates() {
                 stopCandidateSearch();
+            }
+
+            @Override
+            public void onChooseAnotherFile() {
+                restoreDialog.dismiss();
+                launchRestorePicker(mRestoreReselectLauncher);
             }
 
             @Override
@@ -745,7 +789,7 @@ public class Activity extends AppCompatActivity
 
             case R.id.action_restore:
 
-                launchRestorePicker();
+                launchRestorePicker(mRestoreSaveLauncher);
 
                 return true;
 

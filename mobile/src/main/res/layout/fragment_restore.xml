@@ -50,13 +50,27 @@
         android:textSize="14sp"
         android:visibility="gone" />
 
-    <Button
-        android:id="@+id/restore_try_button"
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="@string/main_restore_try"
-        style="?android:attr/buttonBarButtonStyle" />
+        android:orientation="horizontal"
+        android:layout_marginTop="8dp">
+
+        <Button
+            android:id="@+id/restore_try_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp"
+            android:text="@string/main_restore_try"
+            style="?android:attr/buttonBarButtonStyle" />
+
+        <Button
+            android:id="@+id/restore_reselect_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/main_restore_reselect"
+            style="?android:attr/buttonBarButtonStyle" />
+    </LinearLayout>
 
     <LinearLayout
         android:layout_width="match_parent"

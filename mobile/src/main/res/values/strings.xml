@@ -91,6 +91,8 @@
     <string name="main_restore_try_none">All %1$d variants tried, no match</string>
     <string name="main_restore_try_recovered_title">Backup password recovered</string>
     <string name="main_restore_try_recovered_warning">This password cannot be viewed again later!</string>
+    <string name="main_restore_reselect">Choose file</string>
+    <string name="main_restore_file_selected">Backup file: %1$s</string>
 
     <!-- Strings for the password activity. -->
     <string name="password">Password</string>
