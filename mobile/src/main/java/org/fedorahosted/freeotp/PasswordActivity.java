@@ -3,7 +3,6 @@ package org.fedorahosted.freeotp;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.Resources;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.text.Editable;
@@ -14,13 +13,11 @@ import android.text.method.LinkMovementMethod;
 import android.text.util.Linkify;
 import android.util.Log;
 import android.view.View;
-import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputLayout;
 
-import java.util.Locale;
 
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
@@ -28,44 +25,13 @@ import androidx.appcompat.widget.AppCompatEditText;
 
 import org.fedorahosted.freeotp.main.Activity;
 
-import me.gosimple.nbvcxz.Nbvcxz;
-import me.gosimple.nbvcxz.resources.Configuration;
-import me.gosimple.nbvcxz.resources.ConfigurationBuilder;
-import me.gosimple.nbvcxz.scoring.Result;
 
 public class PasswordActivity extends AppCompatActivity {
-    private static class Evaluator extends AsyncTask<String, Void, Result> {
-        interface OnResultListener {
-            void onResult(Result result);
-        }
-
-        private OnResultListener mOnResultListener;
-        private Locale mLocale;
-
-        Evaluator(Locale locale, OnResultListener listener) {
-            mOnResultListener = listener;
-            mLocale = locale;
-        }
-
-        @Override
-        protected Result doInBackground(String... strings) {
-            Configuration cfg = new ConfigurationBuilder().setLocale(mLocale).createConfiguration();
-            return new Nbvcxz(cfg).estimate(strings[0]);
-        }
-
-        @Override
-        protected void onPostExecute(Result result) {
-            mOnResultListener.onResult(result);
-        }
-    }
-
     private static final String LOGTAG = "PasswordActivity";
 
     private AppCompatEditText mPassword;
     private AppCompatEditText mConfirm;
     private MaterialButton mDone;
-    private Evaluator mEvaluator;
-    private ProgressBar mProgress;
     private TextInputLayout mPasswordLayout;
     private TextInputLayout mConfirmLayout;
     private TokenPersistence mTokenBackup;
@@ -94,7 +60,6 @@ public class PasswordActivity extends AppCompatActivity {
         mPassword = findViewById(R.id.password);
         mConfirm = findViewById(R.id.confirm);
         mDone = findViewById(R.id.done);
-        mProgress = findViewById(R.id.progress);
         mPasswordLayout = findViewById(R.id.password_layout);
         mConfirmLayout = findViewById(R.id.confirm_layout);
 
@@ -129,36 +94,21 @@ public class PasswordActivity extends AppCompatActivity {
 
             @Override
             public void afterTextChanged(Editable editable) {
-                mConfirmLayout.setVisibility(View.INVISIBLE);
                 mConfirmLayout.setError(null);
                 mPasswordLayout.setError(null);
                 mDone.setEnabled(false);
                 mConfirm.setText("");
 
-                if (mEvaluator != null)
-                    mEvaluator.cancel(true);
-
-                if (editable.toString().length() == 0) {
-                    mProgress.setVisibility(View.INVISIBLE);
+                String password = editable.toString();
+                if (password.isEmpty()) {
+                    mConfirmLayout.setVisibility(View.INVISIBLE);
                     return;
                 }
 
-                mEvaluator = new Evaluator(getResources().getConfiguration().locale, new Evaluator.OnResultListener() {
-                    @Override
-                    public void onResult(Result result) {
-                        mProgress.setVisibility(View.INVISIBLE);
-
-                        boolean safe = result.isMinimumEntropyMet();
-                        String error = result.getFeedback().getWarning();
-
-                        mConfirmLayout.setVisibility(View.VISIBLE);
-                        mPasswordLayout.setError(safe ? null : error);
-                    }
-                });
-
-                mProgress.setVisibility(View.VISIBLE);
-
-                mEvaluator.execute(editable.toString());
+                // Require a mix of upper case, lower case, digit and special character.
+                boolean valid = meetsComplexity(password);
+                mPasswordLayout.setError(valid ? null : getString(R.string.password_complexity));
+                mConfirmLayout.setVisibility(valid ? View.VISIBLE : View.INVISIBLE);
             }
         });
 
@@ -182,16 +132,22 @@ public class PasswordActivity extends AppCompatActivity {
                 boolean zero = confirm.length() == 0;
 
                 mConfirmLayout.setError(zero || match ? null : error);
-                mDone.setEnabled(!zero && match);
+                mDone.setEnabled(!zero && match && meetsComplexity(password));
             }
         });
     }
 
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-
-        if (mEvaluator != null)
-            mEvaluator.cancel(true);
+    // A password must contain at least one upper case letter, one lower case letter,
+    // one digit and one special (non-alphanumeric) character.
+    private static boolean meetsComplexity(String password) {
+        boolean upper = false, lower = false, digit = false, special = false;
+        for (int i = 0; i < password.length(); i++) {
+            char c = password.charAt(i);
+            if (Character.isUpperCase(c)) upper = true;
+            else if (Character.isLowerCase(c)) lower = true;
+            else if (Character.isDigit(c)) digit = true;
+            else special = true;
+        }
+        return upper && lower && digit && special;
     }
 }

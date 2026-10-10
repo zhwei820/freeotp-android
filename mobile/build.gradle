@@ -50,7 +50,6 @@ dependencies {
     implementation 'commons-codec:commons-codec:1.15'
     implementation 'com.google.code.gson:gson:2.10.1'
     implementation 'com.google.zxing:core:3.5.4'
-    implementation 'me.gosimple:nbvcxz:1.4.2'
     implementation 'androidx.appcompat:appcompat:1.7.1'
     implementation 'androidx.constraintlayout:constraintlayout:2.2.1'
     implementation 'net.bytebuddy:byte-buddy:1.15.11'
