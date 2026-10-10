@@ -461,14 +461,7 @@ public class Activity extends AppCompatActivity
         restoreDialog.setListener(new RestoreDialogFragment.RestoreDialogListener() {
             @Override
             public void onRestorePassword(String password) {
-                mRestorePwd = password;
-
-                try {
-                    mTokenAdapter.restoreTokens(mRestorePwd);
-                    restoreDialog.dismiss();
-                } catch (TokenPersistence.BadPasswordException e) {
-                    restoreDialog.showBadPasswordError();
-                }
+                restoreWithPassword(restoreDialog, password, false);
             }
 
             @Override
@@ -506,6 +499,38 @@ public class Activity extends AppCompatActivity
             }
         });
         restoreDialog.show(getSupportFragmentManager(), "restore");
+    }
+
+    /* 与「确定」同一条还原路径；showRecoveredPassword 表示密码是试出来的，
+       还原成功后展示出来供用户记录——该密码之后无法再次查看。 */
+    private void restoreWithPassword(RestoreDialogFragment dialog, String password, boolean showRecoveredPassword) {
+        mRestorePwd = password;
+
+        try {
+            mTokenAdapter.restoreTokens(mRestorePwd);
+            dialog.dismiss();
+            if (showRecoveredPassword) {
+                showRecoveredPasswordAlert(password);
+            }
+        } catch (TokenPersistence.BadPasswordException e) {
+            dialog.showBadPasswordError();
+        }
+    }
+
+    private void showRecoveredPasswordAlert(String password) {
+        View content = getLayoutInflater().inflate(R.layout.dialog_save_password, null);
+        ((TextView) content.findViewById(R.id.save_warning))
+                .setText(R.string.main_restore_try_recovered_warning);
+        ((TextView) content.findViewById(R.id.saved_password)).setText(password);
+
+        AlertDialog alert = new AlertDialog.Builder(this)
+                .setTitle(R.string.main_restore_try_recovered_title)
+                .setView(content)
+                .setPositiveButton(R.string.close, null)
+                .create();
+        alert.getWindow().setFlags(WindowManager.LayoutParams.FLAG_SECURE,
+                WindowManager.LayoutParams.FLAG_SECURE);
+        alert.show();
     }
 
     /* 在后台逐个校验候选密码。默认规则集不超过 100 个，通常一轮跑完；
@@ -569,6 +594,9 @@ public class Activity extends AppCompatActivity
             if (found != null) {
                 discardCandidateSearch();
                 dialog.showCandidateFound(found, nextIndex + 1, total);
+
+                /* 试出来的密码直接执行还原，不再要求用户点「确定」 */
+                restoreWithPassword(dialog, found, true);
             } else if (nextIndex >= total) {
                 discardCandidateSearch();
                 dialog.showCandidatesExhausted(total);
