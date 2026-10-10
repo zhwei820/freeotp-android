@@ -406,6 +406,14 @@ public class Activity extends AppCompatActivity
             }
 
             @Override
+            public void onVerifyPassword(String password) {
+                if (mTokenBackup.verifyPassword(password))
+                    restoreDialog.showGoodPasswordResult();
+                else
+                    restoreDialog.showBadPasswordError();
+            }
+
+            @Override
             public void onRestoreCancel() {
                 restoreDialog.dismiss();
                 showRestoreCancelAlert();
