@@ -56,14 +56,19 @@ public class Code {
         }
 
         Code makeHotpCode(int code, @Nullable Integer digits, int period, boolean reverse) {
-            return makeCode(code, digits, period, reverse, false);
+            return new Code(format(code, digits, reverse), period);
         }
 
-        Code makeTotpCode(int code, @Nullable Integer digits, int period, boolean reverse) {
-            return makeCode(code, digits, period, reverse, true);
+        Code makeTotpCode(int code, int nextCode, @Nullable Integer digits, int period,
+                          boolean reverse, long now) {
+            long periodMs = period * 1000L;
+            long windowStart = now / periodMs * periodMs;
+            Code current = new Code(format(code, digits, reverse), period, windowStart);
+            current.mNext = new Code(format(nextCode, digits, reverse), period, windowStart + periodMs);
+            return current;
         }
 
-        private Code makeCode(int code, @Nullable Integer digits, int period, boolean reverse, boolean alignToWindow) {
+        private String format(int code, @Nullable Integer digits, boolean reverse) {
             if (digits == null)
                 digits = mDigits;
 
@@ -77,7 +82,7 @@ public class Code {
                 code /= mAlphabet.length;
             }
 
-            return new Code(new String(buffer), period, alignToWindow);
+            return new String(buffer);
         }
     }
 
@@ -85,24 +90,31 @@ public class Code {
     private final long mPeriod;
     private final long mStart;
     private final long mWindowStart; // For TOTP: the epoch window this code is valid for
+    private Code mNext;
 
     public Code(String code, long period) {
-        this(code, period, false);
+        // HOTP: valid for one period from when the code was generated
+        mPeriod = period * 1000;
+        mStart = Time.INSTANCE.current();
+        mWindowStart = 0; // Not used for HOTP
+        mCode = code;
     }
 
-    public Code(String code, long period, boolean alignToWindow) {
-        long currentTime = Time.INSTANCE.current();
+    private Code(String code, long period, long windowStart) {
         mPeriod = period * 1000;
-        if (alignToWindow) {
-            // For TOTP: track which window this code is valid for
-            mStart = 0; // Flag to indicate TOTP mode
-            mWindowStart = (currentTime / mPeriod) * mPeriod;
-        } else {
-            // For HOTP: use current time when code was generated
-            mStart = currentTime;
-            mWindowStart = 0; // Not used for HOTP
-        }
+        mStart = 0; // Flag to indicate TOTP mode
+        mWindowStart = windowStart;
         mCode = code;
+    }
+
+    /**
+     * The TOTP code for the following window, computed together with this one because a
+     * locked token's key only stays authorized for one period. Null for HOTP: generating
+     * one advances the counter.
+     */
+    @Nullable
+    public Code getNext() {
+        return mNext;
     }
 
     public String getCode() {
@@ -116,10 +128,9 @@ public class Code {
     public long timeLeft() {
         long now = Time.INSTANCE.current();
         if (mStart == 0) {
-            // TOTP mode: calculate time until next period boundary based on epoch
-            long windowStart = (now / mPeriod) * mPeriod;
-            long left = windowStart + mPeriod - now;
-            return left < 0 ? 0 : left;
+            // TOTP mode: calculate time until the end of this code's window
+            long left = mWindowStart + mPeriod - now;
+            return Math.max(0, Math.min(left, mPeriod));
         } else {
             // HOTP mode: calculate time since code was generated
             long left = mStart + mPeriod - now;

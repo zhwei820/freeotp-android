@@ -12,6 +12,15 @@ FreeOTP implements open standards:
 
 This means that no proprietary server-side component is necessary: use any server-side component that implements these standards.
 
+## Code display
+
+Tapping a TOTP token shows its current code. When that code's period ends, the code for the
+next period is shown automatically, and the codes are hidden only after that second period ends.
+Both codes are computed at tap time, so a locked token only asks for device authentication once.
+Only the first code is copied when auto-copy to clipboard is enabled.
+
+An HOTP code is shown for a single period, because generating another code would advance the counter.
+
 ## Screenshots
 <img src="screenshots/1.png" alt="FreeOTP screenshot 1" width="200" /> &nbsp;<img src="screenshots/2.png" alt="FreeOTP screenshot 2" width="200" /> &nbsp;<img src="screenshots/3.png" alt="FreeOTP screenshot 3" width="200" /> &nbsp;<img src="screenshots/4.png" alt="FreeOTP screenshot 4" width="200" />
 

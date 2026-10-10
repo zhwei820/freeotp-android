@@ -351,12 +351,17 @@ public class Adapter extends SelectableAdapter<ViewHolder> implements ViewHolder
                 Code code = mActive.get(id);
                 if (code == null)
                     return;
-                if (!code.isValid())
-                    mActive.remove(id);
-                else {
-                    long delay = Math.max(code.timeLeft(), MIN_DELAY_MS);
-                    mHandler.postDelayed(this, delay);
+                if (!code.isValid()) {
+                    Code next = code.getNext();
+                    if (next == null) {
+                        mActive.remove(id);
+                        return;
+                    }
+                    mActive.put(id, next);
+                    code = next;
                 }
+                long delay = Math.max(code.timeLeft(), MIN_DELAY_MS);
+                mHandler.postDelayed(this, delay);
             }
         }, initialDelay);
 

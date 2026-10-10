@@ -167,7 +167,11 @@ class ViewHolder extends RecyclerView.ViewHolder {
         mCountdown.setDuration(timeLeft);
 
         mHandler.removeCallbacksAndMessages(null);
-        mHandler.postDelayed(() -> fadeOut(animationDuration), timeLeft);
+        Code next = code.getNext();
+        if (next != null)
+            mHandler.postDelayed(() -> displayCode(next, animationDuration), timeLeft);
+        else
+            mHandler.postDelayed(() -> fadeOut(animationDuration), timeLeft);
         fadeIn(animationDuration);
 
         mCountdown.setIntValues(code.getProgress(mProgress.getMax()), 0);

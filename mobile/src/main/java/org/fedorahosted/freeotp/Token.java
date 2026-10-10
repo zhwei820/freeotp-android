@@ -343,16 +343,28 @@ public class Token {
     }
 
     public Code getCode(Key key) throws InvalidKeyException {
+        // Steam reverses OTP code.
+        boolean reverse = Objects.equals(mIssuer, "Steam");
+        Code.Factory factory = Code.Factory.fromIssuer(mIssuer);
+
+        if (mType == Type.TOTP) {
+            long now = Time.INSTANCE.current();
+            long counter = now / 1000 / getPeriod();
+            return factory.makeTotpCode(hotp(key, counter), hotp(key, counter + 1),
+                    mDigits, getPeriod(), reverse, now);
+        } else {
+            return factory.makeHotpCode(hotp(key, mCounter++), mDigits, getPeriod(), reverse);
+        }
+    }
+
+    private int hotp(Key key, long counter) throws InvalidKeyException {
         Mac mac;
 
         // Prepare the input.
         Log.i("Token", String.format("token.GetCode(): prepare input"));
         ByteBuffer bb = ByteBuffer.allocate(8);
         bb.order(ByteOrder.BIG_ENDIAN);
-        switch (mType) {
-            case HOTP: bb.putLong(mCounter++); break;
-            case TOTP: bb.putLong(Time.INSTANCE.current() / 1000 / getPeriod()); break;
-        }
+        bb.putLong(counter);
 
         try {
             mac = Mac.getInstance("Hmac" + getAlgorithm());
@@ -370,16 +382,7 @@ public class Token {
         code |= (digest[off + 1] & 0xff) << 0x10;
         code |= (digest[off + 2] & 0xff) << 0x08;
         code |= (digest[off + 3] & 0xff);
-
-        // Steam reverses OTP code.
-        boolean reverse = Objects.equals(mIssuer, "Steam");
-
-        Code.Factory factory = Code.Factory.fromIssuer(mIssuer);
-        if (mType == Type.TOTP) {
-            return factory.makeTotpCode(code, mDigits, getPeriod(), reverse);
-        } else {
-            return factory.makeHotpCode(code, mDigits, getPeriod(), reverse);
-        }
+        return code;
     }
 
     public void setIssuer(String issuer) {
