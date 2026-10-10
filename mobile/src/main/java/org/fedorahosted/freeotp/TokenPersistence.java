@@ -79,6 +79,23 @@ public class TokenPersistence {
         return mBackups.getString(MASTER, null) != null;
     }
 
+    // Read-only check of whether pwd can decrypt the loaded backup's master key.
+    // Unlike restore(), it never writes to the keystore or preferences and never
+    // falls back to generating a new master key, so it cannot accept a wrong password.
+    public boolean verifyPassword(String pwd) {
+        String s = mBackups.getString(MASTER, null);
+        if (s == null)
+            return false;
+
+        try {
+            MasterKey mk = new Gson().fromJson(s, MasterKey.class);
+            mk.decrypt(pwd);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     public boolean provision(String password)
             throws BadPaddingException, NoSuchAlgorithmException, IllegalBlockSizeException,
             IOException, NoSuchPaddingException, InvalidKeyException, InvalidKeySpecException,

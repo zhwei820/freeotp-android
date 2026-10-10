@@ -44,11 +44,13 @@ public class RestoreDialogFragment extends DialogFragment implements View.OnClic
     private TextInputEditText mPasswordInput;
     private TextInputLayout mPasswordLayout;
     private Button mOkButton;
+    private Button mVerifyButton;
     private Button mCancelButton;
     private RestoreDialogListener mListener;
 
     public interface RestoreDialogListener {
         void onRestorePassword(String password);
+        void onVerifyPassword(String password);
         void onRestoreCancel();
     }
 
@@ -71,9 +73,11 @@ public class RestoreDialogFragment extends DialogFragment implements View.OnClic
         mPasswordInput = v.findViewById(R.id.restore_password_input);
         mPasswordLayout = v.findViewById(R.id.restore_password_layout);
         mOkButton = v.findViewById(R.id.restore_ok_button);
+        mVerifyButton = v.findViewById(R.id.restore_verify_button);
         mCancelButton = v.findViewById(R.id.restore_cancel_button);
 
         mOkButton.setOnClickListener(this);
+        mVerifyButton.setOnClickListener(this);
         mCancelButton.setOnClickListener(this);
 
         // Clear error when user starts typing
@@ -86,6 +90,7 @@ public class RestoreDialogFragment extends DialogFragment implements View.OnClic
                 if (mPasswordLayout.getError() != null) {
                     mPasswordLayout.setError(null);
                 }
+                mPasswordLayout.setHelperText(null);
             }
 
             @Override
@@ -115,7 +120,7 @@ public class RestoreDialogFragment extends DialogFragment implements View.OnClic
     @Override
     public void onClick(View v) {
         int id = v.getId();
-        if (id == R.id.restore_ok_button) {
+        if (id == R.id.restore_ok_button || id == R.id.restore_verify_button) {
             if (mPasswordInput != null && mListener != null) {
                 String password = mPasswordInput.getText().toString();
 
@@ -125,7 +130,11 @@ public class RestoreDialogFragment extends DialogFragment implements View.OnClic
                     return;
                 }
 
-                mListener.onRestorePassword(password);
+                if (id == R.id.restore_verify_button) {
+                    mListener.onVerifyPassword(password);
+                } else {
+                    mListener.onRestorePassword(password);
+                }
             }
         } else if (id == R.id.restore_cancel_button) {
             if (mListener != null) {
@@ -145,8 +154,16 @@ public class RestoreDialogFragment extends DialogFragment implements View.OnClic
 
     public void showBadPasswordError() {
         if (mPasswordLayout != null) {
+            mPasswordLayout.setHelperText(null);
             mPasswordLayout.setError(getString(R.string.main_restore_bad_password));
             mPasswordInput.requestFocus();
+        }
+    }
+
+    public void showGoodPasswordResult() {
+        if (mPasswordLayout != null) {
+            mPasswordLayout.setError(null);
+            mPasswordLayout.setHelperText(getString(R.string.main_restore_good_password));
         }
     }
 }
