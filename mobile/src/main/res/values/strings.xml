@@ -87,8 +87,10 @@
     <string name="main_restore_try_progress">Trying %1$d of %2$d variants (round %3$d)...</string>
     <string name="main_restore_try_round_finished">Round %1$d finished with no match (%2$d of %3$d tried). Continue with the next round?</string>
     <string name="main_restore_try_stopped">Paused after %1$d of %2$d variants. Continue?</string>
-    <string name="main_restore_try_found">Password found (variant %1$d of %2$d), filled in</string>
+    <string name="main_restore_try_found">Password found (variant %1$d of %2$d), restoring...</string>
     <string name="main_restore_try_none">All %1$d variants tried, no match</string>
+    <string name="main_restore_try_recovered_title">Backup password recovered</string>
+    <string name="main_restore_try_recovered_warning">This password cannot be viewed again later!</string>
 
     <!-- Strings for the password activity. -->
     <string name="password">Password</string>

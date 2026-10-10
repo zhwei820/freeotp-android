@@ -48,8 +48,10 @@
     <string name="main_restore_try_progress">正在尝试第 %3$d 轮，已试 %1$d/%2$d 个候选...</string>
     <string name="main_restore_try_round_finished">第 %1$d 轮未命中（已试 %2$d/%3$d 个）。继续尝试下一轮？</string>
     <string name="main_restore_try_stopped">已暂停（已试 %1$d/%2$d 个候选）。继续？</string>
-    <string name="main_restore_try_found">已找到匹配的密码（第 %1$d/%2$d 个候选），已填入输入框</string>
+    <string name="main_restore_try_found">已找到匹配的密码（第 %1$d/%2$d 个），正在还原...</string>
     <string name="main_restore_try_none">已尝试全部 %1$d 个候选，未找到匹配的密码</string>
+    <string name="main_restore_try_recovered_title">已找回备份密码</string>
+    <string name="main_restore_try_recovered_warning">此密码之后将无法再次查看！</string>
     <string name="password">输入密码</string>
     <string name="password_confirm">确认输入密码</string>
     <string name="password_info">动态密码备份让您可以从数据遗失中恢复，并且轻松地把您的动态密码转移到新装置上。\n\n备份会使用您提供的密码来加密。备份的安全性取决于密码的强度。\n\n请注意，这个密码受到FreeOTP的安全模型限制，设定后无法更改。</string>
