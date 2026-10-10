@@ -254,7 +254,10 @@ public class TokenPersistence {
         }
     }
 
-    public void restoreBackupFromExternal(Uri uri) {
+    // Stages an external backup file into the backup store. Returns false (leaving the
+    // store untouched) when the file can't be read, e.g. a remembered Uri whose file was
+    // moved/deleted or whose permission was revoked.
+    public boolean restoreBackupFromExternal(Uri uri) {
         ObjectInputStream input = null;
         try {
             InputStream inputStream = mContext.getContentResolver().openInputStream(uri);
@@ -277,9 +280,10 @@ public class TokenPersistence {
                     else if (v instanceof String)
                         prefEdit.putString(key, ((String) v));
                 }
-                prefEdit.commit();
-            } catch (IOException | ClassNotFoundException e) {
+                return prefEdit.commit();
+            } catch (IOException | ClassNotFoundException | SecurityException e) {
                 Log.e(LOGTAG, "Exception", e);
+                return false;
             } finally {
                 try {
                     if (input != null) {

@@ -127,6 +127,8 @@
     <!-- Strings for Backup related operations -->
     <string name="backup_title">Backup</string>
     <string name="restore_title">Restore</string>
+    <string name="quick_restore_title">Quick restore</string>
+    <string name="quick_restore_unavailable">Remembered backup file is no longer available, please choose one</string>
     <string name="backup_restore_title">Backup and Restore</string>
     <string name="backup_toast">Backup file saved to external storage</string>
     <string name="keystore_migration_explanation">FreeOTP tokens are now migrated into the Android Keystore! This results in increased security of token secrets, however key material is non-exportable. \n\nBackup and restore functionality is now added to ensure tokens can be recovered. You will be prompted to create a master password to setup encrypted token backups.</string>

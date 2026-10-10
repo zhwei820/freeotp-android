@@ -111,6 +111,8 @@ public class Activity extends AppCompatActivity
     static final String SETTINGS = "settings";
     static final String AUTO_COPY_CLIPBOARD = "copyClipboard";
     public static final String SORT_BY_MRU = "sortByMostRecentlyUsed";
+    /* Remembered backup file for Quick Restore */
+    static final String RESTORE_URI = "restoreUri";
 
 
     private final RecyclerView.AdapterDataObserver mAdapterDataObserver =
@@ -220,6 +222,9 @@ public class Activity extends AppCompatActivity
         });
 
         mRestoreSaveLauncher = registerLauncher(uri -> {
+            /* Remember the chosen file so Quick Restore can skip the picker next time */
+            rememberRestoreUri(uri);
+
             /* Copy chosen file (externalBackup.xml) over apps tokenBackup.xml SP file */
             mTokenBackup.restoreBackupFromExternal(uri);
 
@@ -390,6 +395,45 @@ public class Activity extends AppCompatActivity
         cancelDialog.show(getSupportFragmentManager(), "restore_cancel");
     }
 
+    private void launchRestorePicker() {
+        Intent restoreIntent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        restoreIntent.addCategory(Intent.CATEGORY_OPENABLE);
+        restoreIntent.setType("*/*");
+        restoreIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
+                | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+        mRestoreSaveLauncher.launch(restoreIntent);
+    }
+
+    private void rememberRestoreUri(Uri uri) {
+        try {
+            getContentResolver().takePersistableUriPermission(uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        } catch (SecurityException e) {
+            // Some providers don't grant persistable permission; Quick Restore just
+            // won't survive a reboot in that case, which is acceptable.
+            Log.e(LOGTAG, "Exception", e);
+        }
+        mSettings.edit().putString(RESTORE_URI, uri.toString()).apply();
+    }
+
+    private void quickRestore() {
+        String saved = mSettings.getString(RESTORE_URI, null);
+        if (saved == null) {
+            // Nothing remembered yet: fall back to picking a file (and remember it).
+            launchRestorePicker();
+            return;
+        }
+
+        if (mTokenBackup.restoreBackupFromExternal(Uri.parse(saved))) {
+            showRestoreAlert();
+        } else {
+            // Remembered file is gone or unreadable: forget it and let the user pick again.
+            mSettings.edit().remove(RESTORE_URI).apply();
+            UserNotifier.show(this, R.string.quick_restore_unavailable);
+            launchRestorePicker();
+        }
+    }
+
     private void showRestoreAlert() {
         RestoreDialogFragment restoreDialog = RestoreDialogFragment.newInstance();
         restoreDialog.setListener(new RestoreDialogFragment.RestoreDialogListener() {
@@ -546,10 +590,13 @@ public class Activity extends AppCompatActivity
 
             case R.id.action_restore:
 
-                Intent restoreIntent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-                restoreIntent.addCategory(Intent.CATEGORY_OPENABLE);
-                restoreIntent.setType("*/*");
-                mRestoreSaveLauncher.launch(restoreIntent);
+                launchRestorePicker();
+
+                return true;
+
+            case R.id.action_quick_restore:
+
+                quickRestore();
 
                 return true;
 
